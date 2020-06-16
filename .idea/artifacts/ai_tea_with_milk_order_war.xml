@@ -1,0 +1,14 @@
+<component name="ArtifactManager">
+  <artifact type="war" name="ai-tea-with-milk-order:war">
+    <output-path>$PROJECT_DIR$/target</output-path>
+    <properties id="maven-jee-properties">
+      <options>
+        <module>ai-tea-with-milk-order</module>
+        <packaging>war</packaging>
+      </options>
+    </properties>
+    <root id="archive" name="ai-tea-with-milk-order.war">
+      <element id="artifact" artifact-name="ai-tea-with-milk-order:war exploded" />
+    </root>
+  </artifact>
+</component>

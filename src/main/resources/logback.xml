@@ -1,0 +1,62 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<configuration>
+    <!--日志文件配置-->
+    <include resource="org/springframework/boot/logging/logback/base.xml"/>
+
+    <!--日志输出格式：%d表示日期，%thread表示线程名，%-5level：级别从左显示5个字符宽度%msg：日志消息，%n是换行符-->
+    <property name="log.pattern" value="%d{yyyy-MM-dd HH:mm:ss.SSS} [%thread] %-5level %logger{50} - %msg%n"/>
+    <property name="system.log.pattern" value="%date %level [%thread] %logger{36} [%file : %line] %msg%n"/>
+
+    <!--控制台输出-->
+    <appender name="STDOUT" class="ch.qos.logback.core.ConsoleAppender">
+        <encoder class="ch.qos.logback.classic.encoder.PatternLayoutEncoder">
+            <pattern>${log.pattern}</pattern>
+        </encoder>
+    </appender>
+
+    <!--系统日志输出-->
+    <appender name="file" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/app.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- 每天一归档 -->
+            <fileNamePattern>${LOG_PATH}.%d{yyyy-MM-dd}.zip</fileNamePattern>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${system.log.pattern}</pattern>
+        </encoder>
+    </appender>
+    <appender name="sqlfile" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/sql.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- 每天一归档 -->
+            <fileNamePattern>${LOG_PATH}.%d{yyyy-MM-dd}_sql.zip</fileNamePattern>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${system.log.pattern}</pattern>
+        </encoder>
+    </appender>
+    <appender name="errorfile" class="ch.qos.logback.core.rolling.RollingFileAppender">
+        <file>${LOG_PATH}/err.log</file>
+        <rollingPolicy class="ch.qos.logback.core.rolling.TimeBasedRollingPolicy">
+            <!-- 每天一归档 -->
+            <fileNamePattern>${LOG_PATH}.%d{yyyy-MM-dd}_err.zip</fileNamePattern>
+        </rollingPolicy>
+        <encoder>
+            <pattern>${system.log.pattern}</pattern>
+        </encoder>
+    </appender>
+
+    <!--系统日志-->
+    <root level="INFO">
+        <appender-ref ref="CONSOLE"/>
+    </root>
+    <logger name="com.hbsc" level="DEBUG">
+        <appender-ref ref="file"/>
+    </logger>
+    <logger name="com" level="ERROR">
+        <appender-ref ref="errorfile"/>
+    </logger>
+    <logger name="com.hbsc.mapper" level="DEBUG">
+        <appender-ref ref="sqlfile"/>
+    </logger>
+</configuration>
