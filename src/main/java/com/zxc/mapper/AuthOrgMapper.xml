@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zxc.mapper.AuthOrgMapper">
+
+    <sql id="authOrg_Column">
+       o.org_code,o.org_name,o.org_full_name,o.org_status,o.org_parent_code,o.org_display_sn,o.org_source_id,o.org_source,o.delete_flag,o.remark,o.created_by,o.created_time,o.updated_by,o.updated_time,
+			(SELECT org_name FROM auth_org WHERE org_code = o.org_parent_code) org_parent_name
+    </sql>
+
+    <!--查询组织列表-->
+    <select id="selectAuthOrgList" resultType="com.zxc.domain.AuthOrg">
+        select
+        <include refid="authOrg_Column"></include>
+        from auth_org o
+        <where>
+            <if test="orgCode != null and orgCode != '' ">
+                AND org_code = #{orgCode}
+            </if>
+            <if test="orgFullName != null and orgFullName != ''">
+                <bind name="orgFullNameLike" value="orgFullName+'%'"/>
+                AND org_full_name like #{orgFullNameLike}
+            </if>
+            <if test="orgName != null and orgName != ''">
+                <bind name="orgNameLike" value="orgName+'%'"/>
+                AND org_name like #{orgNameLike}
+            </if>
+            <if test="orgParentName != null and orgParentName != ''">
+                <bind name="orgParentNameLike" value="orgParentName+'%'"/>
+                AND org_parent_code in (select org_code from auth_org where org_name like #{orgParentNameLike} )
+            </if>
+            <if test="orgStatus != null and orgStatus !=''">
+                AND org_status = #{orgStatus, jdbcType=VARCHAR}
+            </if>
+            <if test="ids != null and ids.size() > 0">
+                AND org_code IN
+                <foreach collection="ids" item="id" open="(" close=")" separator="," index="index">
+                    #{id}
+                </foreach>
+            </if>
+            AND DELETE_FLAG = 'N'
+        </where>
+    </select>
+
+    <!--根据组织的编号查询所有信息，包括上级组织名称-->
+    <select id="selectOrgByOrgCode" parameterType="java.lang.Integer" resultType="com.zxc.domain.AuthOrg">
+        SELECT
+        <include refid="authOrg_Column"></include>
+        FROM auth_org o
+        where o.org_code = #{orgCode}
+    </select>
+    <!--根据组织的编号查询该组织生效的下级组织信息-->
+    <select id="selectOrgByOrgCodeAndStatus" parameterType="java.lang.Integer" resultType="com.zxc.domain.AuthOrg">
+        SELECT
+        <include refid="authOrg_Column"></include>
+        FROM auth_org o
+        where (o.org_parent_code=#{orgCode}) and o.org_status='E' and o.delete_flag='N'
+    </select>
+    <!--根据组织的编号查询该组织失效的上级组织信息-->
+    <select id="selectOrgByOrgParentCodeAndStatusD" parameterType="java.lang.Integer"
+            resultType="com.zxc.domain.AuthOrg">
+        SELECT
+        <include refid="authOrg_Column"></include>
+        FROM auth_org o
+        where (o.org_code=#{orgParentCode}) and o.org_status='D' and o.delete_flag='N'
+    </select>
+    <!--批量失效-->
+    <!--<update id="updateStatusByOrgCode" parameterType="java.util.List">-->
+    <!--<foreach collection="list" separator=";" item="code">-->
+    <!--update auth_org set org_status='D' where org_code=#{code}-->
+    <!--</foreach>-->
+    <!--</update>-->
+
+    <select id="selectAuthOrgNames" parameterType="java.util.List" resultType="java.lang.String">
+       select GROUP_CONCAT(ORG_NAME SEPARATOR ',') AS NAMES from auth_org
+       <where>
+           ORG_CODE IN
+           <foreach collection="orgIds" item="id" open="(" close=")" separator="," index="index">
+               #{id}
+           </foreach>
+       </where>
+    </select>
+
+    <!--删除全部组织-->
+    <delete id="deleteAllOrg">
+        DELETE FROM auth_org
+    </delete>
+
+    <!--批量新增-->
+    <insert id="importOrg" parameterType="list">
+        INSERT INTO auth_org
+            (ORG_CODE,ORG_NAME,ORG_FULL_NAME,ORG_STATUS,ORG_PARENT_CODE,ORG_DISPLAY_SN,ORG_SOURCE,DELETE_FLAG,REMARK,CREATED_BY,CREATED_TIME)
+        VALUES
+        <foreach collection="orgList" item="authOrgBo" separator=",">
+            (
+                #{authOrgBo.orgCode,jdbcType=VARCHAR},
+                #{authOrgBo.orgName,jdbcType=VARCHAR},
+                #{authOrgBo.orgFullName,jdbcType=VARCHAR},
+                #{authOrgBo.orgStatus,jdbcType=VARCHAR},
+                #{authOrgBo.orgParentCode,jdbcType=VARCHAR},
+                #{authOrgBo.orgDisplaySn,jdbcType=VARCHAR},
+                #{authOrgBo.orgSource,jdbcType=VARCHAR},
+                #{authOrgBo.deleteFlag,jdbcType=VARCHAR},
+                #{authOrgBo.remark,jdbcType=VARCHAR},
+                #{authOrgBo.createdBy,jdbcType=VARCHAR},
+                #{authOrgBo.createdTime,jdbcType=VARCHAR}
+            )
+        </foreach>
+    </insert>
+
+    <!--根据父级组织编号查询子级组织-->
+    <select id="selectChildOrgCodeByParentCode" parameterType="java.util.List" resultType="java.lang.Integer">
+        SELECT ORG_CODE
+        FROM auth_org
+        <where>
+            AND DELETE_FLAG = 'N'
+            AND ORG_STATUS = 'E'
+            AND ORG_PARENT_CODE IN
+            <foreach collection="orgCodeList" item="orgCode" open="(" separator="," close=")">
+                #{orgCode}
+            </foreach>
+        </where>
+    </select>
+
+    <!--获取所有未删除、生效的组织名称-->
+    <select id="getAllOrgName" resultType="java.lang.String">
+        SELECT ORG_NAME
+        FROM auth_org
+        <where>
+            AND DELETE_FLAG = 'N'
+            AND ORG_STATUS = 'E'
+        </where>
+    </select>
+</mapper>

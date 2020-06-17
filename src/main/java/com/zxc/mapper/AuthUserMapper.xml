@@ -1,0 +1,231 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zxc.mapper.AuthUserMapper">
+
+    <sql id="Auth_User_Column">
+        USER_CODE,USER_NAME,USER_REAL_NAME,USER_PASSWORD,ORG_CODE,ORG_NAME,USER_STATUS,USER_EMAIL,LAST_LOGIN_IP,LAST_LOGIN_TIME,REMARK,CREATED_BY,CREATED_TIME,UPDATED_BY,UPDATED_TIME
+    </sql>
+
+    <!--按条件查询用户-->
+    <select id="selectAuthUserList" resultType="com.zxc.domain.AuthUser">
+        select
+        u.*,(SELECT GROUP_CONCAT(r.ROLE_NAME) FROM auth_role r
+        LEFT JOIN auth_user_role ur ON ur.ROLE_CODE = r.ROLE_CODE
+        WHERE ur.USER_CODE = u.USER_CODE ) as roleNames
+        from auth_user u
+        <where>
+            <if test="userCode != null and userCode != ''">
+                and USER_CODE = #{userCode,jdbcType=INTEGER}
+            </if>
+            <if test="userName != null and userName != ''">
+                and USER_NAME = #{userName,jdbcType = VARCHAR}
+            </if>
+            <if test="userRealName != null and userRealName != ''">
+                <bind name="userRealNameLike" value="userRealName+'%'"/>
+                and USER_REAL_NAME like #{userRealNameLike,jdbcType = VARCHAR}
+            </if>
+            <if test="orgCode != null and orgCode != ''">
+                and ORG_CODE = #{orgCode,jdbcType = VARCHAR}
+            </if>
+            <if test="orgName != null and orgName != ''">
+                and ORG_NAME = #{orgName,jdbcType = VARCHAR}
+            </if>
+            <if test="createdBy != null and createdBy != ''">
+                and CREATED_BY = #{createdBy,jdbcType = VARCHAR}
+            </if>
+            <if test="createdTimeStart != null and createdTimeStart != ''">
+                and UNIX_TIMESTAMP(CREATED_TIME) &gt;= UNIX_TIMESTAMP(#{createdTimeStart,jdbcType = VARCHAR})
+            </if>
+            <if test="createdTimeEnd != null and createdTimeEnd != ''">
+                and UNIX_TIMESTAMP(CREATED_TIME) &lt;= UNIX_TIMESTAMP(#{createdTimeEnd,jdbcType = VARCHAR})
+            </if>
+            <if test="ids != null and ids.size() > 0">
+                and user_code in
+                <foreach collection="ids" item="id" open="(" close=")" separator="," index="index">
+                    #{id}
+                </foreach>
+            </if>
+            <if test="orgCodes != null and orgCodes.size() > 0">
+                and ORG_CODE in
+                <foreach collection="orgCodes" item="orgCode" open="(" close=")" separator="," index="index">
+                    #{orgCode}
+                </foreach>
+            </if>
+            <if test="userStatus != null and userStatus != ''">
+                and USER_STATUS = #{userStatus,jdbcType = VARCHAR}
+            </if>
+            AND DELETE_FLAG = 'N'
+        </where>
+    </select>
+
+    <!--根据用户名获取用户信息-->
+    <select id="selectAuthUserByUserName" resultType="com.zxc.domain.AuthUser">
+        select
+        <include refid="Auth_User_Column"/>
+        from auth_user
+        <where>
+            USER_NAME = #{userName, jdbcType=VARCHAR}
+            and DELETE_FLAG = 'N'
+        </where>
+    </select>
+
+    <!--根据用户名查询菜单目录-->
+    <select id="selectAuthPowerByUserName" resultType="com.zxc.domain.AuthPowerBo">
+        select
+        distinct(d.power_code) as powerCode,
+        d.power_name as powerName,
+        d.POWER_PERMS as powerPerms,
+        d.POWER_TYPE as powerType,
+        d.POWER_PARENT_CODE as powerParentCode,
+        d.POWER_URL as powerUrl,
+        d.POWER_ICON_CONTENT as powerIconContent
+        from auth_user a
+        left JOIN auth_user_role b on a.USER_CODE = b.USER_CODE
+        LEFT JOIN auth_role e on e.ROLE_CODE = b.ROLE_CODE
+        LEFT JOIN auth_role_power c on c.ROLE_CODE = b.ROLE_CODE
+        LEFT JOIN auth_power d on d.POWER_CODE = c.POWER_CODE
+        <where>
+            a.USER_NAME = #{userName}
+            AND a.DELETE_FLAG = 'N'
+            AND e.ROLE_STATUS = 'E'
+            AND e.DELETE_FLAG = 'N'
+            AND (d.POWER_TYPE= 'D' OR d.POWER_TYPE = 'M')
+            AND d.DELETE_FLAG = 'N'
+        </where>
+        ORDER by d.POWER_TYPE, d.POWER_DISPLAY_SN
+    </select>
+
+
+    <select id="selectAuthPowerByUserNameAndPerms" resultType="com.zxc.domain.AuthPowerBo">
+        select
+        distinct(d.power_code) as powerCode,
+        d.power_name as powerName,
+        d.POWER_PERMS as powerPerms,
+        d.POWER_TYPE as powerType,
+        d.POWER_PARENT_CODE as powerParentCode,
+        d.POWER_URL as powerUrl,
+        d.POWER_ICON_CONTENT as powerIconContent
+        from auth_user a
+        left JOIN auth_user_role b on a.USER_CODE = b.USER_CODE
+        LEFT JOIN auth_role e on e.ROLE_CODE = b.ROLE_CODE
+        LEFT JOIN auth_role_power c on c.ROLE_CODE = b.ROLE_CODE
+        LEFT JOIN auth_power d on d.POWER_CODE = c.POWER_CODE
+        <where>
+            a.USER_NAME = #{userName}
+            AND a.DELETE_FLAG = 'N'
+            AND e.ROLE_STATUS = 'E'
+            AND e.DELETE_FLAG = 'N'
+            AND d.POWER_TYPE= 'F'
+            AND d.DELETE_FLAG = 'N'
+            <if test="powerPerms != null and powerPerms != ''">
+                AND d.POWER_PERMS like #{powerPerms,jdbcType=VARCHAR}
+            </if>
+        </where>
+        ORDER by d.POWER_TYPE, d.POWER_DISPLAY_SN
+    </select>
+
+    <!--批量新增用户角色关系-->
+    <insert id="insertUserRole">
+        insert into auth_user_role (USER_CODE,ROLE_CODE) values
+        <foreach collection="roleCodeList" item="roleCode" separator=",">
+            (#{userCode}, #{roleCode,jdbcType=VARCHAR})
+        </foreach>
+    </insert>
+    <!--通过userCode查询所拥有的角色信息-->
+    <select id="selectRoleByUserCode" resultType="com.zxc.domain.AuthRolePo" parameterType="java.lang.String">
+        select * from auth_role where ROLE_CODE in (SELECT ROLE_CODE FROM auth_user_role WHERE USER_CODE=#{userCode,jdbcType=VARCHAR})
+    </select>
+
+    <!--通过userCode删除角色用户关联信息-->
+    <delete id="removeRoleCodeAndUserCode" parameterType="java.lang.String">
+        DELETE FROM auth_user_role
+        <where>
+            AND USER_CODE = #{userCode,jdbcType=VARCHAR}
+        </where>
+    </delete>
+    <!--查询用户数据权限(角色维度)-->
+    <select id="selectOrgCodeListByUserCode" parameterType="java.lang.String" resultType="java.lang.String">
+        select
+        distinct(e.ORG_CODE)
+        from auth_user a
+        left join auth_user_role b on a.USER_CODE = b.USER_CODE
+        LEFT JOIN auth_role c on b.ROLE_CODE = c.ROLE_CODE
+        LEFT JOIN auth_role_org d on c.ROLE_CODE = d.ROLE_CODE
+        LEFT JOIN auth_org e on e.ORG_CODE = d.ORG_CODE
+        where a.USER_CODE = #{userCode,jdbcType=VARCHAR}
+        and c.ROLE_STATUS = 'E'
+        and e.ORG_STATUS = 'E'
+    </select>
+
+    <!--删除用户数据权限-->
+    <delete id="removeOrgCodeAndUserCode" parameterType="java.lang.String">
+        delete from  auth_user_org
+        <where>
+            and USER_CODE = #{userCode,jdbcType = VARCHAR}
+        </where>
+    </delete>
+
+    <!--批量新增用户数据权限-->
+    <insert id="insertUserOrg">
+        insert into auth_user_org (USER_CODE,ORG_CODE) values
+        <foreach collection="orgCodes" item="orgCode" separator=",">
+            (#{userCode}, #{orgCode,jdbcType=VARCHAR})
+        </foreach>
+    </insert>
+
+    <!--删除非导入的用户-->
+    <delete id="deleteNonImportedUsers">
+        DELETE FROM auth_user
+        <where>
+            <![CDATA[
+                AND ((UNIX_TIMESTAMP(CREATED_TIME) < UNIX_TIMESTAMP(#{dateStart,jdbcType=VARCHAR})
+                OR UNIX_TIMESTAMP(CREATED_TIME) > UNIX_TIMESTAMP(#{dateEnd,jdbcType=VARCHAR}))
+                AND UPDATED_TIME IS NULL)
+                OR (UNIX_TIMESTAMP(UPDATED_TIME) < UNIX_TIMESTAMP(#{dateStart,jdbcType=VARCHAR})
+                OR UNIX_TIMESTAMP(UPDATED_TIME) > UNIX_TIMESTAMP(#{dateEnd,jdbcType=VARCHAR}))
+            ]]>
+        </where>
+    </delete>
+
+    <!--查询用户数据权限(用户维度)-->
+    <select id="getOrgCodeListByUserCode" parameterType="java.lang.String" resultType="java.lang.String">
+        select ORG_CODE from auth_user_org where USER_CODE = #{userCode,jdbcType=VARCHAR}
+    </select>
+
+    <!--查询拥有权限的用户-->
+    <select id="selectHasPowerUser" parameterType="com.zxc.domain.AuthUser" resultType="com.zxc.domain.AuthUser">
+        SELECT DISTINCT
+            a.USER_NAME,
+            a.USER_REAL_NAME,
+            a.ORG_CODE
+        FROM
+            AUTH_USER a
+            LEFT JOIN AUTH_USER_ROLE b ON a.USER_CODE = b.USER_CODE
+            LEFT JOIN AUTH_ROLE_POWER c ON c.ROLE_CODE = b.ROLE_CODE
+            LEFT JOIN AUTH_POWER d ON d.POWER_CODE = c.POWER_CODE
+            LEFT JOIN AUTH_ROLE_ORG e ON e.ROLE_CODE = b.ROLE_CODE
+            LEFT JOIN AUTH_ROLE f ON f.ROLE_CODE = b.ROLE_CODE
+        <where>
+            <if test="powerPerms != null and powerPerms.size() > 0">
+                AND d.POWER_PERMS IN
+                <foreach collection="powerPerms" item="powerPerm" index="index" open="(" close=")" separator=",">
+                    #{powerPerm,jdbcType=VARCHAR}
+                </foreach>
+            </if>
+            <if test="orgCodes != null and orgCodes.size() > 0">
+                AND a.ORG_CODE IN
+                <foreach collection="orgCodes" item="orgCode" index="index" open="(" close=")" separator=",">
+                    #{orgCode,jdbcType=VARCHAR}
+                </foreach>
+            </if>
+            <if test="roleCode != null and roleCode != ''">
+                AND f.ROLE_CODE != #{roleCode,jdbcType=VARCHAR}
+            </if>
+            <if test="deleteFlag != null and deleteFlag != ''">
+                AND a.DELETE_FLAG = #{deleteFlag,jdbcType=VARCHAR}
+            </if>
+        </where>
+        ORDER BY
+        a.USER_NAME ASC
+    </select>
+</mapper>

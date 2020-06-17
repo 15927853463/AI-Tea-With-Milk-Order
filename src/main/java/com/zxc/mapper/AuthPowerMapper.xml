@@ -1,0 +1,101 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zxc.mapper.AuthPowerMapper">
+
+    <sql id="authPower_Column">
+        ap.POWER_CODE, ap.POWER_PERMS, ap.POWER_NAME, ap.POWER_STATUS, ap.POWER_TYPE,
+        ap.POWER_PARENT_CODE, ap.POWER_URL, ap.POWER_DISPLAY_SN, ap.POWER_ICON_CONTENT,
+        ap.REMARK, ap.CREATED_BY, ap.CREATED_TIME, ap.UPDATED_BY, ap.UPDATED_TIME,
+        (select POWER_NAME from auth_power where POWER_CODE = ap.POWER_PARENT_CODE) POWER_PARENT_NAME
+    </sql>
+
+    <!--通过角色编号获取权限-->
+    <select id="getPowerByRoleCode" resultType="com.zxc.domain.AuthPower" parameterType="java.lang.String">
+        SELECT * FROM auth_power WHERE POWER_CODE in (SELECT POWER_CODE FROM auth_role_power WHERE POWER_STATUS = 'E' AND ROLE_CODE=#{roleCode})
+    </select>
+
+    <!--根据所拥有的角色查询权限标识-->
+    <select id="selectPowerCodesByRoleCodes" resultType="java.lang.String">
+        select
+            ap.POWER_PERMS
+        from
+            auth_role_power arp
+        left join auth_power ap on arp.POWER_CODE = ap.POWER_CODE
+        <where>
+            arp.ROLE_CODE in
+            <foreach
+                    collection="roleCodes" index="index" item="roleCode"
+                    separator="," open="(" close=")">
+                #{roleCode}
+            </foreach>
+        </where>
+    </select>
+
+    <!--根据id查询权限(包含父级信息和当前权限层级是否是第一级)-->
+    <select id="getAuthPowerById" resultType="com.zxc.domain.AuthPowerBo">
+        select
+        a.POWER_CODE AS powerCode,a.POWER_PERMS AS powerPerms,a.POWER_NAME AS powerName,a.POWER_TYPE AS powerType,
+        a.POWER_STATUS AS powerStatus,a.POWER_PARENT_CODE AS powerParentCode, a.POWER_URL AS powerUrl,
+        a.POWER_DISPLAY_SN AS powerDisplaySn,a.POWER_ICON_CONTENT AS powerIconContent, b.POWER_NAME AS powerParentName,
+        b.POWER_TYPE AS powerParentType,
+        (CASE  WHEN b.POWER_PARENT_CODE = '0' THEN 1 ELSE 2 END) AS powerParentLevel
+        from auth_power a
+        LEFT JOIN auth_power b on a.POWER_PARENT_CODE = b.POWER_CODE
+        WHERE a.POWER_CODE = #{id} AND a.DELETE_FLAG = 'N'
+    </select>
+
+    <!--查询权限列表-->
+    <select id="selectAuthPowerList" resultType="com.zxc.domain.AuthPower">
+        select
+            <include refid="authPower_Column"></include>
+        from auth_power ap
+        <where>
+            <if test="powerPerms != null and powerPerms != ''">
+                <bind name="powerPermsLike" value="powerPerms+'%'"/>
+                AND POWER_PERMS like #{powerPermsLike}
+            </if>
+            <if test="powerName != null and powerName != ''">
+                <bind name="powerNameLike" value="powerName+'%'"/>
+                AND POWER_NAME like #{powerNameLike}
+            </if>
+            <if test="powerParentName != null and powerParentName != ''">
+                <bind name="powerParentNameLike" value="powerParentName+'%'"/>
+                AND POWER_PARENT_CODE in (select POWER_CODE from auth_power where POWER_NAME like #{powerParentNameLike} )
+            </if>
+            <if test="powerStatus != null and powerStatus != ''">
+                AND POWER_STATUS = #{powerStatus, jdbcType=VARCHAR}
+            </if>
+            <if test="ids != null and ids.size() > 0">
+                AND POWER_CODE IN
+                <foreach collection="ids" item="id" open="(" close=")" separator="," index="index">
+                    #{id}
+                </foreach>
+            </if>
+                AND DELETE_FLAG = 'N'
+        </where>
+    </select>
+
+    <!--查询失效的上级权限数量-->
+    <select id="selectParentPowerCount" resultType="java.lang.Integer">
+        SELECT
+            count(*)
+        FROM
+            (
+                SELECT
+                    @r AS _id,
+                    ( SELECT @r := POWER_PARENT_CODE FROM auth_power WHERE POWER_CODE = _id AND DELETE_FLAG = "N" ) AS POWER_PARENT_CODE,
+                    @l := @l + 1 AS lvl
+                FROM
+                    ( SELECT @r := #{id}, @l := 0 ) vars,
+                    auth_power h
+                WHERE
+                    @r != 0
+                    AND POWER_PARENT_CODE > 0
+            ) T1
+            JOIN auth_power T2 ON T1._id = T2.POWER_CODE
+        WHERE
+            POWER_STATUS = "D"
+            AND POWER_CODE != #{id}
+            AND DELETE_FLAG = "N"
+    </select>
+</mapper>

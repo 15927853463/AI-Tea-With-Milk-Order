@@ -1,0 +1,133 @@
+<?xml version="1.0" encoding="UTF-8"?>
+<!DOCTYPE mapper PUBLIC "-//mybatis.org//DTD Mapper 3.0//EN" "http://mybatis.org/dtd/mybatis-3-mapper.dtd">
+<mapper namespace="com.zxc.mapper.AuthRoleMapper">
+
+    <!--查询角色列表-->
+    <select id="selectAuthRoleList" parameterType="com.zxc.domain.AuthRoleBo" resultType="com.zxc.domain.AuthRoleBo">
+        SELECT DISTINCT
+        a.ROLE_NAME,a.ROLE_CODE,a.ROLE_STATUS,a.CREATED_BY,a.CREATED_TIME,a.UPDATED_BY,a.UPDATED_TIME
+        FROM auth_role a
+        LEFT JOIN auth_role_org b
+        on b.ROLE_CODE = a.ROLE_CODE
+        WHERE a.DELETE_FLAG='N'
+        <if test="roleName != null and roleName != ''">
+            AND a.ROLE_NAME LIKE concat('%',#{roleName,jdbcType=VARCHAR},'%')
+        </if>
+        <if test="roleStatus != null and roleStatus != ''">
+            AND a.ROLE_STATUS = #{roleStatus,jdbcType=VARCHAR}
+        </if>
+        <if test="orgCodes != null and orgCodes != ''">
+            AND b.ORG_CODE in
+            <foreach collection="orgCodes" index="index" item="orgCode" open="(" close=")" separator=",">
+                ${orgCode}
+            </foreach>
+        </if>
+        <if test="roleCodes != null and roleCodes.size() > 0">
+            AND a.ROLE_CODE IN
+            <foreach collection="roleCodes" item="roleCode" open="(" close=")" separator="," index="index">
+                #{roleCode}
+            </foreach>
+        </if>
+    </select>
+
+    <!--根据用户名查询所拥有的角色编号-->
+    <select id="selectRoleCodesByUserCode" resultType="java.lang.String">
+        select
+        `ROLE_CODE`
+        from auth_user_role
+        <where>
+            USER_CODE = #{userCode}
+        </where>
+    </select>
+
+    <select id="selectRoleNamesByUserCode" resultType="java.lang.String">
+        select
+        GROUP_CONCAT(b.ROLE_NAME)
+        from auth_user_role a
+        LEFT JOIN auth_role b on a.ROLE_CODE = b.ROLE_CODE
+        <where>
+            USER_CODE = #{userCode}
+        </where>
+    </select>
+
+    <!--获取拥有指定角色的用户数量-->
+    <select id="selectCountByRoleCode" resultType="java.lang.Integer">
+        select
+            count(*)
+        from auth_user_role
+        <where>
+            ROLE_CODE = #{roleCode}
+        </where>
+    </select>
+
+    <!--添加角色与权限依赖-->
+    <insert id="insertRolePowers" parameterType="java.lang.String">
+        insert into auth_role_power (ROLE_CODE, POWER_CODE) values
+        <foreach collection="powerCodeArray" item="powerCode" separator=",">
+            (#{roleCode}, #{powerCode})
+        </foreach>
+    </insert>
+
+    <!--添加角色与组织依赖-->
+    <insert id="insertRoleOrgs" parameterType="java.lang.String">
+        insert into auth_role_org (ROLE_CODE, ORG_CODE) values
+        <foreach collection="orgCodeArray" item="orgCode" separator=",">
+            (#{roleCode}, #{orgCode})
+        </foreach>
+    </insert>
+
+    <!--根据角色编号删除角色权限关联表关系-->
+    <delete id="deleteRoleAboutPowerByRCode" parameterType="java.lang.String">
+        DELETE FROM auth_role_power
+        <where>
+            AND ROLE_CODE = #{roleCode,jdbcType=VARCHAR}
+        </where>
+    </delete>
+    <!--根据角色编号删除角色用户关联表关系-->
+    <delete id="deleteRoleAboutUserByRCode" parameterType="java.lang.String">
+        DELETE FROM auth_user_role
+        <where>
+            AND ROLE_CODE = #{roleCode,jdbcType=VARCHAR}
+        </where>
+    </delete>
+
+    <!--根据角色编号删除角色组织关联表关系-->
+    <delete id="deleteRoleAboutOrgByRCode" parameterType="java.lang.String">
+        DELETE FROM auth_role_org
+        <where>
+            AND ROLE_CODE = #{roleCode,jdbcType=VARCHAR}
+        </where>
+    </delete>
+
+    <!--查询角色组织信息-->
+    <select id="selectOrgCodeListByRoleCode" parameterType="java.lang.Integer" resultType="java.lang.Integer">
+        SELECT
+        ORG_CODE
+        FROM auth_role_org
+        <where>
+            AND ROLE_CODE = #{roleCode,jdbcType=VARCHAR}
+        </where>
+    </select>
+
+    <!--查询拥有我的审核权限得角色-->
+    <select id="queryRoleListForApproval" resultType="com.zxc.domain.AuthRolePo">
+        SELECT c.ROLE_CODE AS roleCode
+        ,c.ROLE_NAME AS roleName
+        FROM auth_power a
+        LEFT JOIN auth_role_power b ON a.POWER_CODE = b.POWER_CODE
+        LEFT JOIN auth_role c ON b.ROLE_CODE = c.ROLE_CODE
+        WHERE a.POWER_PERMS = 'qcMyApprover:examine'
+        AND c.ROLE_STATUS = 'E' AND c.DELETE_FLAG = 'N'
+    </select>
+
+    <!--查询所有未删除、生效的角色名称-->
+    <select id="selectAllRoleName" resultType="java.lang.String">
+        SELECT ROLE_NAME
+        FROM auth_role
+        <where>
+            AND DELETE_FLAG = 'N'
+            AND ROLE_STATUS = 'E'
+        </where>
+    </select>
+    
+</mapper>
