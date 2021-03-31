@@ -36,7 +36,7 @@
         <!--Collections工具类-->
         <collections.version>4.4</collections.version>
         <!--guava工具类-->
-        <guava.version>28.0-jre</guava.version>
+        <guava.version>29.0-jre</guava.version>
         <!--elasticsearch-->
         <bboss-elasticsearch.version>5.9.7</bboss-elasticsearch.version>
         <bboss-elasticsearch-jdbc.version>5.9.7</bboss-elasticsearch-jdbc.version>
