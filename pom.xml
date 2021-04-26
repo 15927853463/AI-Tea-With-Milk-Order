@@ -30,7 +30,7 @@
         <!--lang3工具类-->
         <lang3.version>3.9</lang3.version>
         <!--io工具类-->
-        <io.version>2.6</io.version>
+        <io.version>2.7</io.version>
         <!--FTP-->
         <FTP.version>3.4</FTP.version>
         <!--Collections工具类-->
