@@ -32,7 +32,7 @@
         <!--io工具类-->
         <io.version>2.6</io.version>
         <!--FTP-->
-        <FTP.version>3.4</FTP.version>
+        <FTP.version>3.9.0</FTP.version>
         <!--Collections工具类-->
         <collections.version>4.4</collections.version>
         <!--guava工具类-->
